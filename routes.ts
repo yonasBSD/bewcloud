@@ -362,6 +362,7 @@ const routes: Routes = {
   apiFilesSearch: createPageRouteHandler('api/files/search.ts', '/api/files/search'),
   apiFilesUpdateShare: createPageRouteHandler('api/files/update-share.ts', '/api/files/update-share'),
   apiFilesUpload: createPageRouteHandler('api/files/upload.ts', '/api/files/upload'),
+  apiFilesUploadChunk: createPageRouteHandler('api/files/upload-chunk.ts', '/api/files/upload-chunk'),
 
   apiNewsAddFeed: createPageRouteHandler('api/news/add-feed.ts', '/api/news/add-feed'),
   apiNewsDeleteFeed: createPageRouteHandler('api/news/delete-feed.ts', '/api/news/delete-feed'),

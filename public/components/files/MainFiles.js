@@ -18,6 +18,7 @@ export default function MainFiles({
 }) {
   const isAdding = useSignal(false);
   const isUploading = useSignal(false);
+  const uploadProgress = useSignal('');
   const isDeleting = useSignal(false);
   const isUpdating = useSignal(false);
   const directories = useSignal(initialDirectories);
@@ -34,6 +35,61 @@ export default function MainFiles({
   const moveDirectoryOrFileModal = useSignal(null);
   const createShareModal = useSignal(null);
   const manageShareModal = useSignal(null);
+  const CHUNK_SIZE_BYTES = 10 * 1024 * 1024;
+  async function uploadFileSingle(chosenFile, parentPath) {
+    const requestBody = new FormData();
+    requestBody.set('path_in_view', path.value);
+    requestBody.set('parent_path', parentPath);
+    requestBody.set('name', chosenFile.name);
+    requestBody.set('contents', chosenFile);
+    const response = await fetch(`/api/files/upload`, {
+      method: 'POST',
+      body: requestBody
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to upload file. ${response.statusText} ${await response.text()}`);
+    }
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error('Failed to upload file!');
+    }
+    files.value = [...result.newFiles];
+    directories.value = [...result.newDirectories];
+  }
+  async function uploadFileChunked(chosenFile, parentPath) {
+    const totalChunks = Math.ceil(chosenFile.size / CHUNK_SIZE_BYTES);
+    const uploadId = crypto.randomUUID();
+    const pathInView = path.value;
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+      uploadProgress.value = `Uploading ${chosenFile.name} (${chunkIndex + 1}/${totalChunks})…`;
+      const start = chunkIndex * CHUNK_SIZE_BYTES;
+      const end = Math.min(start + CHUNK_SIZE_BYTES, chosenFile.size);
+      const chunkBlob = chosenFile.slice(start, end);
+      const requestBody = new FormData();
+      requestBody.set('upload_id', uploadId);
+      requestBody.set('chunk_index', String(chunkIndex));
+      requestBody.set('total_chunks', String(totalChunks));
+      requestBody.set('path_in_view', pathInView);
+      requestBody.set('parent_path', parentPath);
+      requestBody.set('name', chosenFile.name);
+      requestBody.set('chunk', chunkBlob);
+      const response = await fetch(`/api/files/upload-chunk`, {
+        method: 'POST',
+        body: requestBody
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to upload chunk ${chunkIndex + 1}/${totalChunks}. ${response.statusText} ${await response.text()}`);
+      }
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(`Failed to upload chunk ${chunkIndex + 1}/${totalChunks}!`);
+      }
+      if (result.isComplete) {
+        files.value = [...result.newFiles];
+        directories.value = [...result.newDirectories];
+      }
+    }
+  }
   function onClickUploadFile(uploadDirectory = false) {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
@@ -48,34 +104,24 @@ export default function MainFiles({
       const chosenFilesList = event.target?.files;
       const chosenFiles = Array.from(chosenFilesList);
       isUploading.value = true;
+      uploadProgress.value = '';
       for (const chosenFile of chosenFiles) {
         if (!chosenFile) {
           continue;
         }
         areNewOptionsOpen.value = false;
-        const requestBody = new FormData();
-        requestBody.set('path_in_view', path.value);
-        requestBody.set('parent_path', path.value);
-        requestBody.set('name', chosenFile.name);
-        requestBody.set('contents', chosenFile);
+        let fileParentPath = path.value;
         if (chosenFile.webkitRelativePath) {
           const directoryPath = chosenFile.webkitRelativePath.replace(chosenFile.name, '');
-          requestBody.set('parent_path', `${path.value}${directoryPath}`);
+          fileParentPath = `${path.value}${directoryPath}`;
         }
+        uploadProgress.value = '';
         try {
-          const response = await fetch(`/api/files/upload`, {
-            method: 'POST',
-            body: requestBody
-          });
-          if (!response.ok) {
-            throw new Error(`Failed to upload file. ${response.statusText} ${await response.text()}`);
+          if (chosenFile.size >= CHUNK_SIZE_BYTES) {
+            await uploadFileChunked(chosenFile, fileParentPath);
+          } else {
+            await uploadFileSingle(chosenFile, fileParentPath);
           }
-          const result = await response.json();
-          if (!result.success) {
-            throw new Error('Failed to upload file!');
-          }
-          files.value = [...result.newFiles];
-          directories.value = [...result.newDirectories];
         } catch (error) {
           console.error(error);
         }
@@ -631,7 +677,7 @@ export default function MainFiles({
     class: "white mr-2",
     width: 18,
     height: 18
-  }), "Uploading...") : null, isUpdating.value ? h(Fragment, null, h("img", {
+  }), uploadProgress.value || 'Uploading…') : null, isUpdating.value ? h(Fragment, null, h("img", {
     src: "/public/images/loading.svg",
     class: "white mr-2",
     width: 18,
