@@ -88,7 +88,7 @@ export default function MainFiles(
   const createShareModal = useSignal<{ isOpen: boolean; filePath: string; password?: string } | null>(null);
   const manageShareModal = useSignal<{ isOpen: boolean; fileShareId: string } | null>(null);
 
-  // 10 MB chunks keep each request well under Cloudflare Tunnel's 100 MB limit.
+  // 10 MB chunks keep each request faster.
   const CHUNK_SIZE_BYTES = 10 * 1024 * 1024;
 
   async function uploadFileSingle(chosenFile: File, parentPath: string) {
@@ -120,9 +120,7 @@ export default function MainFiles(
   async function uploadFileChunked(chosenFile: File, parentPath: string) {
     const totalChunks = Math.ceil(chosenFile.size / CHUNK_SIZE_BYTES);
     const uploadId = crypto.randomUUID();
-    // Capture once — the user may navigate away during a long upload, which
-    // would change path.value and cause the final response to refresh the
-    // wrong directory listing.
+    // Capture once — the user may navigate away during a long upload, which would change path.value and cause the final response to refresh the wrong directory listing.
     const pathInView = path.value;
 
     for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
@@ -945,7 +943,7 @@ export default function MainFiles(
             ? (
               <>
                 <img src='/public/images/loading.svg' class='white mr-2' width={18} height={18} />
-                {uploadProgress.value || 'Uploading…'}
+                {uploadProgress.value || 'Uploading...'}
               </>
             )
             : null}

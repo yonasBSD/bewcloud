@@ -12,8 +12,7 @@ export interface ResponseBody {
   newDirectories?: Directory[];
 }
 
-// Deno.FsFile.write() may do short writes (like POSIX write()), so loop until
-// all bytes are written.
+// Deno.FsFile.write() may do short writes (like POSIX write()), so loop until all bytes are written.
 async function writeAll(file: Deno.FsFile, data: Uint8Array): Promise<void> {
   let offset = 0;
   while (offset < data.length) {
@@ -88,7 +87,7 @@ async function post({ request, user }: RequestHandlerParams) {
   }
 
   const filesRootPath = await AppConfig.getFilesRootPath();
-  const userUploadDir = join(filesRootPath, '.chunk-uploads', user!.id);
+  const userUploadDir = join(filesRootPath, user!.id, '.chunk-uploads');
   const uploadDir = join(userUploadDir, uploadId);
 
   // On the first chunk of a new upload, evict any stale sessions from this user.
@@ -110,6 +109,7 @@ async function post({ request, user }: RequestHandlerParams) {
 
     if (receivedCount < totalChunks) {
       const responseBody: ResponseBody = { success: true, isComplete: false };
+
       return new Response(JSON.stringify(responseBody));
     }
 
@@ -126,8 +126,12 @@ async function post({ request, user }: RequestHandlerParams) {
       finalFile = await Deno.open(finalFilePath, { write: true, createNew: true });
     } catch (error) {
       await Deno.remove(uploadDir, { recursive: true }).catch(() => {});
+      await Deno.remove(userUploadDir, { recursive: true }).catch(() => {});
+
       console.error(error);
+
       const responseBody: ResponseBody = { success: false, isComplete: true };
+
       return new Response(JSON.stringify(responseBody));
     }
 
@@ -139,22 +143,29 @@ async function post({ request, user }: RequestHandlerParams) {
       }
     } catch (error) {
       finalFile.close();
+
       await Deno.remove(finalFilePath).catch(() => {});
       await Deno.remove(uploadDir, { recursive: true }).catch(() => {});
+      await Deno.remove(userUploadDir, { recursive: true }).catch(() => {});
+
       throw error;
     }
 
     finalFile.close();
     await Deno.remove(uploadDir, { recursive: true });
+    await Deno.remove(userUploadDir, { recursive: true }).catch(() => {});
 
     const newFiles = await FileModel.list(user!.id, pathInView);
     const newDirectories = await DirectoryModel.list(user!.id, pathInView);
 
     const responseBody: ResponseBody = { success: true, isComplete: true, newFiles, newDirectories };
+
     return new Response(JSON.stringify(responseBody));
   } catch (error) {
     console.error(error);
     await Deno.remove(uploadDir, { recursive: true }).catch(() => {});
+    await Deno.remove(userUploadDir, { recursive: true }).catch(() => {});
+
     return new Response('Internal Server Error', { status: 500 });
   }
 }
