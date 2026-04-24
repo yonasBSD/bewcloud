@@ -677,7 +677,7 @@ export default function MainFiles({
     class: "white mr-2",
     width: 18,
     height: 18
-  }), uploadProgress.value || 'Uploading…') : null, isUpdating.value ? h(Fragment, null, h("img", {
+  }), uploadProgress.value || 'Uploading...') : null, isUpdating.value ? h(Fragment, null, h("img", {
     src: "/public/images/loading.svg",
     class: "white mr-2",
     width: 18,
