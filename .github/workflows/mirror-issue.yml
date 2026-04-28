@@ -1,24 +1,26 @@
 name: Issue sync (GitHub -> Codeberg)
 on:
-  issues:
-    types: [
-      opened,
-      deleted,
-      pinned,
-      unpinned,
-      closed,
-      reopened,
-      assigned,
-      unassigned,
-      labeled,
-      unlabeled,
-      locked,
-      unlocked,
-      milestoned,
-      demilestoned,
-    ]
-  issue_comment:
-    types: [created]
+  workflow_dispatch:
+  # Automated execution of this job is disabled over potential security concerns
+  # issues:
+  #   types: [
+  #     opened,
+  #     deleted,
+  #     pinned,
+  #     unpinned,
+  #     closed,
+  #     reopened,
+  #     assigned,
+  #     unassigned,
+  #     labeled,
+  #     unlabeled,
+  #     locked,
+  #     unlocked,
+  #     milestoned,
+  #     demilestoned,
+  #   ]
+  # issue_comment:
+  #   types: [created]
 
 jobs:
   sync-issue:
@@ -89,7 +91,7 @@ jobs:
                 ;;
 
               unlabeled)    #### UNLABELED ####
-                echo "Unalbeled"
+                echo "Unlabeled"
                 ;;
 
               *)
